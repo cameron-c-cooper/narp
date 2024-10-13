@@ -1,0 +1,25 @@
+[package]
+name = "narp"
+description = "Daemon integrating arpwatch and nmap functionality"
+authors = ["Cameron Cooper"]
+version = "0.1.0"
+edition = "2021"
+homepage = 
+repository = 
+readme =
+keywords = ["arp", "nmap", "network", "scan", "security"]
+categories = 
+exclude =
+
+
+[dependencies]
+daemonize = "0.5.0"
+
+# Network
+dns-lookup = "2.0.4"
+ipnetwork = "0.20.0"
+pnet = "0.35.0"
+pnet_datalink = "0.35.0"
+
+# Writing to database
+sqlite = "0.36.1"

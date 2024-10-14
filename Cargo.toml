@@ -10,6 +10,9 @@ readme = "README.md"
 keywords = ["arp", "nmap", "network", "scan", "security"]
 
 [dependencies]
+bit-set = "0.8.0"
+bit-vec = "0.8.0"
+bitvec = "1.0.1"
 daemonize = "0.5.0"
 
 # Network
@@ -20,3 +23,5 @@ pnet_datalink = "0.35.0"
 
 # Writing to database
 sqlite = "0.36.1"
+syslog = "7.0.0"
+threadpool = "1.8.1"

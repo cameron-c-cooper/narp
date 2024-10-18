@@ -1,6 +1,6 @@
 use std::{collections::VecDeque, net::{
     IpAddr, Ipv4Addr, SocketAddr, TcpStream
-}, sync::mpsc::{Receiver, Sender}, thread::Thread, usize};
+}, sync::{mpsc::{Receiver, Sender}, Arc, Barrier}, usize};
 use std::time::Duration;
 use std::process;
 use std::sync::mpsc::channel;
@@ -9,6 +9,7 @@ use threadpool::ThreadPool;
 use bit_set::BitSet;
 use syslog::{Facility, Formatter3164};
 
+pub mod os_engine;
 mod utils;
 use utils::PORTS_ARR;
 
@@ -21,6 +22,7 @@ pub enum NmapErrors {
     QueueMaxExceeded,
 }
 
+#[allow(unused)]
 impl NmapController {
     pub fn new(max_len_queue: Option<u32>) -> NmapController {
         let default_max_queue_size: u32 = 500; 
@@ -51,11 +53,16 @@ impl NmapController {
  * that is what I will do.
  */
 #[allow(unused)]
-pub fn scan_ip(addr: IpAddr) -> BitSet {
+fn scan_ip(addr: IpAddr) -> BitSet {
     let port_range: Vec<u16> = (1..65535).collect();
-    // There are 500 jobs per worker, excluding the last one.
+    let formatter = Formatter3164 {
+        facility: Facility::LOG_DAEMON,
+        hostname: None,
+        process: "narp".into(),
+        pid: process::id(),
+    };
+    // PORTS_ARR is the array containing the 1000 most frequent TCP ports
     let num_jobs = PORTS_ARR.len();
-    let mut open_ports: Vec<u16> = Vec::new();
     let total_ports = num_jobs;
     let tp = ThreadPool::new(100);
     let mut bitset: BitSet = BitSet::with_capacity(PORTS_ARR.len());
@@ -74,12 +81,19 @@ pub fn scan_ip(addr: IpAddr) -> BitSet {
         match rx.recv() {
             Ok(num) => {
                 match num {
-                    0..=u32::MAX => bitset.insert(index),
+                    0..=0xffff => bitset.insert(index),
+
                     _ => false,
                 };
             },
             Err(e) => {
-
+                let formatter = formatter.clone();
+                match syslog::unix(formatter) {
+                    Err(e) => println!("impossible to connect to syslog: {:?}", e),
+                    Ok(mut writer) => {
+                        writer.info("no more ports").expect("could not write error message");
+                    }
+                }
             }
         }
     }
@@ -87,4 +101,13 @@ pub fn scan_ip(addr: IpAddr) -> BitSet {
     return bitset;
 }
 
+fn scan_for_os(addr: IpAddr, ports: Vec<u16>) -> String {
+    let num_jobs = ports.len();
+    let tp = ThreadPool::new(num_jobs);
+    // +1 represents the final thread which will call wait
+    let barrier = Arc::new(Barrier::new(num_jobs + 1));
+    for _ in 0..num_jobs {
+    }
+    String::new()
+}
 

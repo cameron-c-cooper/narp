@@ -17,11 +17,17 @@ daemonize = "0.5.0"
 
 # Network
 dns-lookup = "2.0.4"
+etherparse = "0.16.0"
+icmp = "0.3.0"
 ipnetwork = "0.20.0"
 pnet = "0.35.0"
 pnet_datalink = "0.35.0"
+serde = "1.0.210"
+socket2 = "0.5.7"
 
 # Writing to database
 sqlite = "0.36.1"
 syslog = "7.0.0"
+thiserror = "1.0.64"
 threadpool = "1.8.1"
+tun-tap = "0.1.4"

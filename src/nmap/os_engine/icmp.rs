@@ -1,130 +1,116 @@
-use std::{io::Write, net::{IpAddr, Ipv4Addr, SocketAddr}};
-use std::time::{Duration, SystemTime};
-use etherparse::Ipv4Header;
-use pnet::packet::icmp::IcmpPacket;
-use thiserror::Error;
-use socket2::{Type, Protocol, Domain, Socket};
+use std::{net::{IpAddr, Ipv4Addr}, str::FromStr, time::Duration, mem};
+use nix::{libc::{self, socket, PF_INET, SOCK_RAW}, NixPath};
+use pnet::{
+    packet::{
+        icmp::{
+            echo_reply::{self, EchoReplyPacket}, echo_request::MutableEchoRequestPacket, IcmpCode, IcmpTypes::EchoRequest
+        }, ip::IpNextHeaderProtocols::{self, Icmp}, ipv4::{
+            Ipv4Packet,
+            MutableIpv4Packet
+        }, FromPacket, Packet
+    }, 
+    transport::{self, icmp_packet_iter, TransportChannelType},
+    util::checksum,
+};
+use rand::{thread_rng, Rng};
+use local_ip_address::{linux::local_ip};
 
-pub const HEADER_SIZE: usize = 8;
 
-pub struct IcmpV4;
+const windowSizes: [u16; 13] = [ 1, 63, 4, 4, 16, 512, 3, 128, 256, 1024, 31337, 32768, 65536 ];
+/*
+ * WINDOW SIZES
+ *  1   63   4     4
+ *  16  512  3     128
+ *  256 1024 31337 32760
+ *  65535
+ */
 
-#[derive(Debug, Error)]
-pub enum Error {
-    #[error("invalid size")]
-    InvalidSize,
-    #[error("invalid packet")]
-    InvalidPacket,
+/*
+ * ICMP PACKET STRUCTURE
+ *
+ * 4 Version | 4 header | 8 Type of Service | 16 Total Length
+ * 16 Identifier | 4 flags | 12 fragment offset
+ * 8 Time to Live | 8 Protocol | 16 header checksum
+ * 32 source addr
+ * 32 dest addr
+ * 8 type | 8 code | 16 icmp checksum
+ * 32 data
+ *
+ */
+enum IcmpError {
+    Generic
 }
 
-pub trait Proto {
-    const ECHO_REQUEST_TYPE: u8;
-    const ECHO_REQUEST_CODE: u8;
-    const ECHO_REPLY_TYPE: u8;
-    const ECHO_REPLY_CODE: u8;
+
+const DF: u8 = 0b010;
+const MF: u8 = 0b001;
+
+fn get_local_ip_addr() -> Ipv4Addr {
+    let str = local_ip().unwrap().to_string();
+    Ipv4Addr::from_str(&str).unwrap()
 }
 
-impl Proto for IcmpV4 {
-    const ECHO_REQUEST_TYPE: u8 = 8;
-    const ECHO_REQUEST_CODE: u8 = 0;
-    const ECHO_REPLY_TYPE: u8 = 0;
-    const ECHO_REPLY_CODE: u8 = 0;
-}
+/** MAKE SURE THE OK() RESULT IS USED AND MOVED TO EchoReplyPacket */
+fn send_packet1(ip_addr: Ipv4Addr) -> Result<Vec<u8>, String> {
+    let protocol = TransportChannelType::Layer3(IpNextHeaderProtocols::Icmp);
+    // TODO move this to a match statement and syslog it. this is a daemon, not a user process
+    let (mut tx, mut rx) = transport::transport_channel(1024, protocol)
+        .expect("Failed to create transport channel");
 
-pub struct EchoRequest<'a> {
-    pub id: u16,
-    pub seq: u16,
-    pub payload: &'a [u8]
-}
+    let mut buf = vec![0u8; 64];
+    
+    let id = thread_rng().gen();
+    // single packet for now
+    let mut packet = MutableEchoRequestPacket::new(&mut buf)
+        .expect("Failed to create ICMP packet");
+    packet.set_icmp_type(EchoRequest);
+    packet.set_sequence_number(295);
+    packet.set_icmp_code(IcmpCode::new(9));
+    packet.set_identifier(id);
+    // payload of 120 bytes of 0x0
+    packet.set_payload(&[0u8; 120]);
 
-impl <'a> EchoRequest<'a> {
-    pub fn encode<P:Proto>(&self, buffer: &mut [u8]) -> Result<(), Error> {
-        buffer[0] = P::ECHO_REQUEST_TYPE;
-        buffer[1] = P::ECHO_REQUEST_CODE;
+    let ip_header_len = 20;
+    let icmp_len = packet.packet().len();
+    let total_len = ip_header_len + icmp_len;
+
+    let mut raw_packet = vec![0u8; total_len];
+    let splices = &mut raw_packet.split_at_mut(ip_header_len);
+    let mut ip_packet = MutableIpv4Packet::new(&mut splices.0)
+        .expect("Failed to create IP packet");
+    ip_packet.set_version(4);
+    ip_packet.set_header_length(ip_header_len as u8/4); // ip header length measured in words. Says
+                                                        // u8 but it really is u4
+                                                    
+    ip_packet.set_total_length(total_len as u16);
+    ip_packet.set_identification(id);
+    ip_packet.set_flags(DF);
+    ip_packet.set_ttl(64);
+    ip_packet.set_next_level_protocol(Icmp);
+    ip_packet.set_source(get_local_ip_addr());
+    ip_packet.set_destination(ip_addr);
+    
+    
+    let ip_payload = &mut splices.1;
+    ip_payload.copy_from_slice(packet.packet());
+
+    let ip_checksum = checksum(&ip_packet.packet(), 1);
+    ip_packet.set_checksum(ip_checksum);
+
+    tx.send_to(ip_packet, IpAddr::V4(ip_addr)).expect("Failed to send packet");
+    
+    let mut iter = icmp_packet_iter(&mut rx);
+    let (reply, addr) = iter.next_with_timeout(Duration::from_millis(500)).expect("Failed to get reply packet").expect("Failed to get reply packet");
 
 
-        buffer[4] = (self.id >> 8) as u8;
-        buffer[5] = self.id as u8;
-        buffer[6] = (self.seq >> 8) as u8;
-        buffer[7] = self.seq as u8;
-
-        // First 8 bytes are id and seq, as well as echo req type and code
-        if let Err(_) = (&mut buffer[8..]).write_all(self.payload) {
-            return Err(Error::InvalidSize);
-        } 
-        write_checksum(buffer);
-        Ok(())
-    }
-}
-
-pub struct EchoReply<'a> {
-    pub id: u16,
-    pub seq: u16,
-    pub payload: &'a [u8]
-}
-
-impl <'a> EchoReply<'a> {
-    pub fn decode<P: Proto>(buffer: &'a [u8]) -> Result<Self, Error> {
-        if buffer.as_ref().len() < HEADER_SIZE {
-            return Err(Error::InvalidSize);
+    if addr == IpAddr::from(ip_addr) {
+        let mut v: Vec<u8> = Vec::new();
+        for i in reply.packet().iter() {
+            v.push(*i);
         }
-
-        let type_ = buffer[0];
-        let code = buffer[1];
-
-        if type_ != P::ECHO_REPLY_TYPE || code != P::ECHO_REPLY_CODE {
-            return Err(Error::InvalidPacket);
-        }
-
-        let id = (u16::from(buffer[4]) << 8) + u16::from(buffer[5]);
-        let seq = (u16::from(buffer[6]) << 8) + u16::from(buffer[7]);
-        let payload = &buffer[HEADER_SIZE..];
-
-        Ok(EchoReply {
-            id,
-            seq,
-            payload
-        })
+        return Ok(v)
     }
+    return Err("Failed to get reply".to_string())
 }
 
-pub fn write_checksum(buffer: &mut [u8]) {
-    let mut sum = 0u32;
-    for word in buffer.chunks(2) {
-        let mut part = u16::from(word[0]) << 8;
-        if word.len() > 1 {
-            part += u16::from(word[1]);
-        }
-        sum = sum.wrapping_add(u32::from(part));
-    }
 
-    while (sum >> 16) > 0 {
-        sum = (sum & 0xffff) + (sum >> 16);
-    }
-
-    let sum = !sum as u16;
-
-    buffer[2] = (sum >> 8) as u8;
-    buffer[3] = (sum & 0xff) as u8;
-}
-
-const TOKEN_SIZE: usize = 24;
-const ECHO_REQUEST_BUFFER_SIZE: usize = HEADER_SIZE + TOKEN_SIZE;
-type Token = [u8; TOKEN_SIZE];
-
-pub fn ping_with_sock_type(
-    sock_t: Type,
-    addr: IpAddr,
-    timeout: Option<Duration>,
-    ttl: Option<u32>,
-    id: Option<u16>,
-    seq: Option<u16>,
-    payload: Option<&Token>
-) -> Result<(), Error> {
-    // let time_start = SystemTime::now();
-    let timeout = match timeout {
-        Some(timeout) => timeout,
-        None => Duration::from_secs(4),
-    };
-
-}

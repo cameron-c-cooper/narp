@@ -427,6 +427,7 @@ dependencies = [
  "bit-set",
  "bit-vec",
  "bitvec",
+ "byteorder",
  "daemonize",
  "dns-lookup",
  "etherparse",

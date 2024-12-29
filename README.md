@@ -1,3 +1,5 @@
 # narp
 ## Description
-This is a daemon that effectively integrates particular nmap and arpwatch functionality. It is a tool created in order to enhance the effectiveness of network monitoring through using SQLite and multi-threading. However, given the advances PostgreSQL has made, I will likely migrate over to that in the future for a more diverse toolset instead of the lightweight framework that SQLite provides.
+Effectively, this is a network traffick monitoring tool designed to run with root privileges that scans the subnet for devices. It proceeds
+to enter that device into a database, and will queue it for scanning in order to detect the operating system. For a large part, this is a
+integration of the functionalities of both Nmap and Arpwatch, along with extended functionality such as sending SNMP traps upon scan.

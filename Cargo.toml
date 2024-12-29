@@ -1,0 +1,12 @@
+[package]
+name = "narp"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+log = "0.4.22"
+pnet = { version = "0.35.0", features = ["serde", "pcap"] }
+serde = "1.0.217"
+socket2 = { version = "0.5.8", features = ["all"] }
+threadpool = "1.8.1"
+tokio = { version = "1.42.0", features = ["net", "socket2"] }

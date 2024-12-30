@@ -1,8 +1,13 @@
+extern crate simplelog;
+
+use log::{self, debug, error, info, trace, warn};
 use std::net::Ipv4Addr;
+use narp::{self, init_term_logging, os_detection::get_open_ports};
 
-use narp::{self, os_detection::get_open_ports};
 fn main() {
-    println!("Establishing Connection...");
+    init();
+}
 
-    get_open_ports(Ipv4Addr::new(127, 0, 0, 1));
+fn init() {
+    init_term_logging();
 }

@@ -278,6 +278,7 @@ dependencies = [
  "serde",
  "simplelog",
  "socket2",
+ "subnetwork",
  "threadpool",
  "tokio",
 ]
@@ -580,6 +581,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "subnetwork"
+version = "0.4.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6e2ab69faa80ed178d4f0f2002c1cac72ca75721bce9a253d0c204f3d1d8291d"
+dependencies = [
+ "thiserror",
+]
+
+[[package]]
 name = "sval"
 version = "2.13.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -675,6 +685,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "06794f8f6c5c898b3275aebefa6b8a1cb24cd2c6c79397ab15774837a0bc5755"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "thiserror"
+version = "2.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d452f284b73e6d76dd36758a0c8684b1d5be31f92b89d07fd5822175732206fc"
+dependencies = [
+ "thiserror-impl",
+]
+
+[[package]]
+name = "thiserror-impl"
+version = "2.0.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "26afc1baea8a989337eeb52b6e72a039780ce45c3edfcc9c5b9d112feeb173c2"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

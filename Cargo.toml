@@ -10,5 +10,6 @@ pnet = { version = "0.35.0", features = ["serde", "pcap"] }
 serde = "1.0.217"
 simplelog = "0.12.2"
 socket2 = { version = "0.5.8", features = ["all"] }
+subnetwork = "0.4.8"
 threadpool = "1.8.1"
 tokio = { version = "1.42.0", features = ["net", "socket2"] }

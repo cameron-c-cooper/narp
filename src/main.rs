@@ -1,8 +1,8 @@
 extern crate simplelog;
 
 use log::{self, debug, error, info, trace, warn};
+use narp::{self, database, init_term_logging};
 use std::net::Ipv4Addr;
-use narp::{self, init_term_logging, os_detection::get_open_ports};
 
 fn main() {
     init();
@@ -10,4 +10,5 @@ fn main() {
 
 fn init() {
     init_term_logging();
+    database::create_db();
 }

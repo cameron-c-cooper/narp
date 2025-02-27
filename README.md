@@ -6,6 +6,4 @@ integration of the functionalities of both Nmap and Arpwatch, along with extende
 and its documentation, especially its services and os database has been extremely helpful for this project
 ## Usage
 This tool is meant to be running as a process in the background. Most often this is achieved through some startup script, whether it is 
-`narp &` in a script, or for example in Hyprland using `exec-once = narp`. Please read the man page as well, it is capable of answering most
-questions.
-
+`narp &` in a script, or for example in Hyprland using `exec-once = narp`.

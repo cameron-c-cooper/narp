@@ -44,7 +44,6 @@ pub fn init_logging() {
 #[derive(Debug, PartialEq, Eq)]
 pub struct Target {
     pub addr: IpAddr,
-    pub addr_type: (bool, bool),
     pub os: Option<&'static str>,
     pub tpts: Arc<[Port]>,
     pub upts: Option<Arc<[Port]>>,
@@ -55,10 +54,20 @@ pub struct Target {
 type Port = u16;
 
 impl Target {
+    pub fn new(addr: IpAddr, tpts: Arc<[Port]>, upts: Option<Arc<[Port]>>) -> Self {
+        Target {
+            addr,
+            os: None,
+            tpts,
+            upts,
+            tpo: None,
+            upo: None
+        }
+    }
+
     pub fn new_target_self(tpts: Arc<[Port]>, upts: Option<Arc<[Port]>>) -> Self {
         Target {
             addr: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            addr_type: (true, false),
             os: None,
             tpts,
             upts,

@@ -11,13 +11,13 @@ use crate::Target;
 #[cfg(target_os = "windows")]
 pub const DB_LOC: &str = "%AppData%\\Local\\Low\\narp.db";
 
-#[cfg(target_os = "linux")]
-pub const DB_LOC: &str = "/var/lib/narp/narp.db";
+// #[cfg(all(target_os = "linux", not(test)))]
+// pub const DB_LOC: &str = "/var/lib/narp/narp.db";
 
 #[cfg(all(target_os = "macos"))]
 pub const DB_LOC: &str = "/Users/558632/dev/narp/db_testing/narp.db";
 
-#[cfg(all(test, target_os = "linux"))]
+#[cfg(target_os = "linux")]
 pub const DB_LOC: &str = "/home/kinveth/dev/narp/db_testing/narp.db";
 
 pub fn create_db() -> Result<()> {

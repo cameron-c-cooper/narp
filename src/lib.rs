@@ -1,4 +1,5 @@
 use log::info;
+use pnet::{datalink::{interfaces, NetworkInterface}, util::MacAddr};
 use simplelog::{Config, SimpleLogger, TermLogger};
 use socket2::Protocol;
 use std::{
@@ -14,9 +15,12 @@ use tokio::{
     time::timeout,
 };
 
+extern crate queues;
+
 pub mod database;
 pub mod os_detection;
 pub mod utils;
+pub mod target_detection;
 
 pub fn init() {
     info!("Narp daemon started");
@@ -41,50 +45,71 @@ pub fn init_logging() {
     info!("Simple logging initialized");
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Target {
-    pub addr: IpAddr,
+    pub ip_addr: IpAddr,
+    pub mac_addr: MacAddr,
     pub os: Option<&'static str>,
     pub tpts: Arc<[Port]>,
     pub upts: Option<Arc<[Port]>>,
     pub tpo: Option<Arc<[Port]>>,
     pub upo: Option<Arc<[Port]>>,
+    pub iface: Arc<NetworkInterface>, // TODO: Check if this should be Arc or rc, unsure if multiple
+                                     // threads will be accessing this
+    pub inserted: bool
 }
 
 type Port = u16;
 
 impl Target {
-    pub fn new(addr: IpAddr, tpts: Arc<[Port]>, upts: Option<Arc<[Port]>>) -> Self {
+    pub fn new(addr: IpAddr, mac_addr: MacAddr, tpts: Arc<[Port]>, upts: Option<Arc<[Port]>>, iface: Arc<NetworkInterface>) -> Self {
         Target {
-            addr,
-            os: None,
-            tpts,
-            upts,
-            tpo: None,
-            upo: None
-        }
-    }
-
-    pub fn new_target_self(tpts: Arc<[Port]>, upts: Option<Arc<[Port]>>) -> Self {
-        Target {
-            addr: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            ip_addr: addr,
+            mac_addr,
             os: None,
             tpts,
             upts,
             tpo: None,
             upo: None,
+            iface,
+            inserted: false
         }
     }
 
-    pub async fn scan_target(&mut self) -> std::io::Result<()> {
-        info!("Scanning target {}", self.addr);
+    pub fn new_target_self(tpts: Arc<[Port]>, upts: Option<Arc<[Port]>>) -> Self {
+        let iface = Arc::new(interfaces().iter().find(|e| e.is_up() && !e.is_loopback() && !e.ips.is_empty()).unwrap().clone());
+        
+        Target {
+            ip_addr: IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+            mac_addr: MacAddr::new(0xff, 0xff, 0xff, 0xff, 0xff, 0xff),
+            os: None,
+            tpts,
+            upts,
+            tpo: None,
+            upo: None,
+            iface,
+            inserted: false
+        }
+    }
+
+    /**
+     * scans all ports on a target and mutates the tpo/upo ports.
+     * tcp ports are ALWAYS checked, udp ports sometimes depending
+     * on the configuration of the target when it is created. Thought
+     * about immediately launching the os engine from this fn, but
+     * figured it would be better to just do it manually, having the
+     * os engine explicitly run on another thread where there is a
+     * shared queue.
+     */
+    pub async fn scan(&mut self) -> std::io::Result<()> {
+        info!("Scanning target {}", self.ip_addr);
         let tcp_vec: Mutex<Vec<Port>> = Mutex::new(Vec::new());
         let udp_vec: Mutex<Vec<Port>> = Mutex::new(Vec::new());
 
         let mut handles: Vec<JoinHandle<Option<Port>>> = Vec::new();
 
         for port in self.tpts.iter() {
-            let handle = spawn(scan_port(self.addr, *port, Protocol::TCP));
+            let handle = spawn(scan_port(self.ip_addr, *port, Protocol::TCP));
             handles.push(handle);
         }
 
@@ -105,7 +130,7 @@ impl Target {
         if let Some(upts_arc) = self.upts.clone() {
             let mut handles: Vec<JoinHandle<Option<Port>>> = Vec::new();
             for port in upts_arc.iter() {
-                let handle = spawn(scan_port(self.addr, *port, Protocol::UDP));
+                let handle = spawn(scan_port(self.ip_addr, *port, Protocol::UDP));
                 handles.push(handle);
             }
 
@@ -125,6 +150,24 @@ impl Target {
         }
 
         Ok(())
+    }
+
+    /**
+     * Returns values section of SQL DML statement
+     */
+    pub fn format_to_sql(&self) -> String {
+        let mut target_vals = format!("('{}', '{}'", self.ip_addr, self.mac_addr);
+
+        if let Some(os) = self.os {
+            target_vals.push_str(&format!(", '{os}'"));
+        }
+        
+        target_vals.push(')');
+        target_vals
+    }
+
+    pub fn set_inserted(&mut self, b: bool) {
+        self.inserted = b;
     }
 }
 

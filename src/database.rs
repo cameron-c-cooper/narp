@@ -3,7 +3,7 @@ use std::{str::FromStr, sync::Arc};
 use log::{error, info};
 use rusqlite::{self, Connection, Result};
 
-use crate::Target; 
+use crate::{Port, Target}; 
 
 // #[cfg(target_os = "macos")]
 // let db_loc = "/Library/Application Support/narp/narp.db";
@@ -100,3 +100,6 @@ pub fn insert_targets(targets: Vec<Target>) -> Result<()> {
     };
 }
 
+pub fn insert_ports() {
+
+}

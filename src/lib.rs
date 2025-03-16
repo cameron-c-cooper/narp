@@ -6,7 +6,7 @@ use std::{
     mem,
     net::{IpAddr, Ipv4Addr},
     sync::{Arc, Mutex},
-    time::Duration,
+    time::Duration, u16,
 };
 use tokio::{
     net::{TcpStream, UdpSocket},
@@ -50,8 +50,8 @@ pub struct Target {
     pub ip_addr: IpAddr,
     pub mac_addr: MacAddr,
     pub os: Option<&'static str>,
-    pub tpts: Arc<[Port]>,
-    pub upts: Option<Arc<[Port]>>,
+    pub tpts: Arc<[u16]>,
+    pub upts: Option<Arc<[u16]>>,
     pub tpo: Option<Arc<[Port]>>,
     pub upo: Option<Arc<[Port]>>,
     pub iface: Arc<NetworkInterface>, // TODO: Check if this should be Arc or rc, unsure if multiple
@@ -59,10 +59,27 @@ pub struct Target {
     pub inserted: bool
 }
 
-type Port = u16;
+#[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]
+pub struct Port {
+    pub idx: u16,
+    pub service: Option<&'static str>,
+}
+
+impl Port {
+    pub fn new(idx: u16, service: Option<&'static str>) -> Self {
+        Port {
+            idx,
+            service
+        }
+    }
+
+    pub fn set_service(&mut self, service: &'static str) {
+        self.service = Some(service);
+    }
+}
 
 impl Target {
-    pub fn new(addr: IpAddr, mac_addr: MacAddr, tpts: Arc<[Port]>, upts: Option<Arc<[Port]>>, iface: Arc<NetworkInterface>) -> Self {
+    pub fn new(addr: IpAddr, mac_addr: MacAddr, tpts: Arc<[u16]>, upts: Option<Arc<[u16]>>, iface: Arc<NetworkInterface>) -> Self {
         Target {
             ip_addr: addr,
             mac_addr,
@@ -76,7 +93,7 @@ impl Target {
         }
     }
 
-    pub fn new_target_self(tpts: Arc<[Port]>, upts: Option<Arc<[Port]>>) -> Self {
+    pub fn new_target_self(tpts: Arc<[u16]>, upts: Option<Arc<[u16]>>) -> Self {
         let iface = Arc::new(interfaces().iter().find(|e| e.is_up() && !e.is_loopback() && !e.ips.is_empty()).unwrap().clone());
         
         Target {
@@ -119,7 +136,7 @@ impl Target {
             }
         }
 
-        let tcp_arc: Arc<[u16]> = {
+        let tcp_arc: Arc<[Port]> = {
             let mut lock = tcp_vec.lock().unwrap();
             let vec = mem::take(&mut *lock);
             Arc::from(vec)
@@ -140,7 +157,7 @@ impl Target {
                 }
             }
 
-            let udp_arc: Arc<[u16]> = {
+            let udp_arc: Arc<[Port]> = {
                 let mut lock = udp_vec.lock().unwrap();
                 let vec = mem::take(&mut *lock);
                 Arc::from(vec)
@@ -171,11 +188,11 @@ impl Target {
     }
 }
 
-async fn scan_port(addr: IpAddr, port: Port, proto: Protocol) -> Option<Port> {
+async fn scan_port(addr: IpAddr, port: u16, proto: Protocol) -> Option<Port> {
     let target = format!("{}:{}", addr.to_string(), port);
     if proto == Protocol::TCP {
         match TcpStream::connect(target).await {
-            Ok(_) => return Some(port),
+            Ok(_) => return Some(Port::new(port, None)),
             Err(_) => return None,
         }
     } else if proto == Protocol::UDP {

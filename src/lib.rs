@@ -65,6 +65,8 @@ pub struct Port {
     pub service: Option<&'static str>,
 }
 
+// represents target in the sql table.
+
 impl Port {
     pub fn new(idx: u16, service: Option<&'static str>) -> Self {
         Port {
@@ -75,6 +77,17 @@ impl Port {
 
     pub fn set_service(&mut self, service: &'static str) {
         self.service = Some(service);
+    }
+
+    pub fn format_to_sql(&self) -> String {
+        let mut port_vals = format!("({}", self.idx);
+        if let Some(service) = self.service {
+            port_vals.push_str(&format!(", {})", service));
+        } else {
+            port_vals.push(')');
+        }
+
+        port_vals
     }
 }
 

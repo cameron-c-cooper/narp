@@ -5,13 +5,16 @@ edition = "2021"
 
 [dependencies]
 chrono = { version = "0.4.39", features = ["serde"] }
+dotenv = "0.15.0"
+ipnetwork = { version = "0.21.1", features = ["serde"] }
+json = "0.12.4"
 log = { version = "0.4.22", features = ["kv", "kv_serde", "kv_std", "serde", "std"] }
 pnet = { version = "0.35.0", features = ["serde", "pcap"] }
 queues = "1.1.0"
-rusqlite = { version = "0.33.0", features = ["bundled"] }
 serde = "1.0.217"
 simplelog = "0.12.2"
 socket2 = { version = "0.5.8", features = ["all"] }
+sqlx = { version = "0.8.3", features = ["chrono", "derive", "ipnetwork", "json", "macros", "postgres", "runtime-tokio", "uuid"] }
 subnetwork = "0.4.8"
 threadpool = "1.8.1"
 tokio = { version = "1.42.0", features = ["full", "net", "socket2"] }

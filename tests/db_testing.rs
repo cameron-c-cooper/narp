@@ -26,8 +26,8 @@ fn start_test_server(port: u16) -> std::io::Result<()> {
     Ok(())
 }
 
-#[test]
-fn test_target_insertion() {
+#[tokio::test]
+async fn test_target_insertion() {
     thread::spawn(|| {start_test_server(4000).unwrap();});
     thread::sleep(Duration::from_millis(500));
     let ifaces = interfaces();
@@ -48,5 +48,4 @@ fn test_target_insertion() {
         iface.clone()
     );
 
-    insert_targets(vec![t1, t2]).unwrap();
-}
+    insert_targets(vec![t1, t2]).await.unwrap(); }

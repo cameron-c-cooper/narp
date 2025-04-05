@@ -8,3 +8,5 @@ and its documentation, especially its services and os database has been extremel
 This tool is meant to be running as a process in the background. Most often this is achieved through some startup script, whether it is 
 `narp &` in a script, or for example in Hyprland using `exec-once = narp`. There will be a utility provided to read and get information
 stored by the tool, to be made at a later date.
+## Getting Started
+Setup PostgreSQL as you normally would. Add the PGS_ADMIN='your_admin_username'

@@ -1,3 +1,4 @@
+use chrono::{DateTime, Utc};
 use log::info;
 use pnet::{datalink::{interfaces, NetworkInterface}, util::MacAddr};
 use simplelog::{Config, SimpleLogger, TermLogger};
@@ -25,7 +26,6 @@ pub mod target_detection;
 pub fn init() {
     info!("Narp daemon started");
     init_term_logging();
-    let _ = database::create_db();
 }
 
 pub fn init_term_logging() {
@@ -57,6 +57,23 @@ pub struct Target {
     pub iface: Arc<NetworkInterface>, // TODO: Check if this should be Arc or rc, unsure if multiple
                                      // threads will be accessing this
     pub inserted: bool
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct SqlDevice {
+    pub id: i64,
+    pub ip_addr: String,    // NOTE: Think about switching ip/mac addrs to numbers for storage
+    pub mac_addr: String,
+    pub os: Option<String>,
+    pub iface: String,
+    pub ts: DateTime<Utc>
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, sqlx::FromRow)]
+pub struct SqlPort {
+    pub device_id: i64,
+    pub idx: i32, // has to be i32 as that is how postgre processes it. weird as hell tbh
+    pub service: Option<String>
 }
 
 #[derive(PartialEq, Eq, PartialOrd, Ord, Debug, Clone)]

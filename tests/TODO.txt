@@ -1,1 +1,0 @@
-create an integration test that opens up ports on self, and then read them
